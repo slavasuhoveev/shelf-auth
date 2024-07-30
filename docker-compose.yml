@@ -1,0 +1,19 @@
+services:
+  auth:
+    build: .
+    ports: ["8080:8080"]
+    environment:
+      ENV: dev
+      HTTP_ADDR: ":8080"
+      LOG_LEVEL: "debug"
+      JWT_ALG: "RS256"
+      JWT_ISS: "shelf-auth"
+      JWT_AUD: "shelf-api"
+      ACCESS_TTL: "15m"
+      REFRESH_TTL: "720h"
+      JWKS_MAX_AGE: "300s"
+      KEYS_DIR: "/run/secrets/keys"
+      SIGNING_KEY_KID: "k1-2025-08-25"
+      # DATABASE_URL: "postgres://user:pass@postgres:5432/db?sslmode=disable"
+    volumes:
+      - ./devkeys:/run/secrets/keys:ro

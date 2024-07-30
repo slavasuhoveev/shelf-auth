@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest a new feature or improvement
+title: "[Feature]: "
+labels: ["type:feature"]
+assignees: []
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is the feature or improvement you would like to see?
+      placeholder: Short and clear description of the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this feature important? What problem does it solve?
+      placeholder: Explain the use case or the pain point this feature addresses.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How do you imagine this feature could work?
+      placeholder: |
+        - Possible technical implementation
+        - API changes
+        - UX considerations
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Did you think of any alternatives? Why did you choose this one?
+      placeholder: Alternative approaches and why they may not work.
+    validations:
+      required: false
+
+  - type: textarea
+    id: dod
+    attributes:
+      label: Definition of Done
+      description: Checklist that must be met for the feature to be considered complete.
+      placeholder: |
+        - [ ] Feature implemented
+        - [ ] Tests written and passing
+        - [ ] Documentation updated
+    validations:
+      required: true
