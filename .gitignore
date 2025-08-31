@@ -1,0 +1,13 @@
+# Go
+bin/
+dist/
+*.out
+*.test
+
+# Dev keys
+devkeys/*
+!devkeys/.keep
+
+# IDE
+.vscode/
+.idea/
