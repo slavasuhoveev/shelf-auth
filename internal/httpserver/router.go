@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/slavasuhoveev/shelf-auth/internal/httpserver/handlers"
+	"github.com/slavasuhoveev/shelf-auth/internal/service"
 )
 
 // JWKSProvider exposes the current JWKS payload for the HTTP layer.
@@ -22,7 +23,7 @@ type JWKSProvider interface {
 type Service interface{}
 
 // NewRouter wires middlewares and routes, delegating request handling to handlers.
-func NewRouter(svc Service, jwks JWKSProvider, log zerolog.Logger) http.Handler {
+func NewRouter(authSvc *service.AuthService, jwks JWKSProvider, log zerolog.Logger) http.Handler {
 	r := chi.NewRouter()
 
 	// Core middlewares (keep them minimal to avoid surprises).
@@ -32,12 +33,14 @@ func NewRouter(svc Service, jwks JWKSProvider, log zerolog.Logger) http.Handler 
 	r.Use(chimw.Timeout(10 * time.Second))
 
 	// Health endpoint (liveness). A separate /readyz can be added later.
-	r.Get("/healthz", handlers.Health())
-	r.Head("/healthz", handlers.Health())
+	r.Get("/healthz", handlers.HealthHandler())
+	r.Head("/healthz", handlers.HealthHandler())
 
 	// JWKS endpoint for gateways to fetch public keys.
-	r.Get("/.well-known/jwks.json", handlers.JWKS(jwks))
-	r.Head("/.well-known/jwks.json", handlers.JWKS(jwks)) // accept HEAD too
+	r.Get("/.well-known/jwks.json", handlers.JWKSHandler(jwks))
+	r.Head("/.well-known/jwks.json", handlers.JWKSHandler(jwks)) // accept HEAD too
+
+	r.Post("/login", handlers.LoginHandler(authSvc, log))
 
 	return r
 }
