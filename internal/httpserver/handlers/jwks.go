@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -14,17 +15,23 @@ type jwksProvider interface {
 
 // JWKS serves the current JWKS document with cache-friendly headers.
 // It supports conditional GETs via If-None-Match/ETag to save bandwidth.
-func JWKS(provider jwksProvider) http.HandlerFunc {
+func JWKSHandler(provider jwksProvider) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body, etag, maxAge := provider.Current()
 
-		// Conditional GET: if ETag matches, return 304 to avoid sending body.
-		if etag != "" && r.Header.Get("If-None-Match") == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return
+		// Parse If-None-Match (may be a list and/or weak validators).
+		if inm := r.Header.Get("If-None-Match"); etag != "" && inm != "" {
+			for _, v := range strings.Split(inm, ",") {
+				v = strings.TrimSpace(v)
+				v = strings.TrimPrefix(v, "W/") // treat weak as match too
+				if v == etag {
+					w.WriteHeader(http.StatusNotModified)
+					return
+				}
+			}
 		}
 
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", "application/jwk-set+json")
 		if maxAge > 0 {
 			w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(int(maxAge.Seconds())))
 		}
@@ -32,8 +39,9 @@ func JWKS(provider jwksProvider) http.HandlerFunc {
 			w.Header().Set("ETag", etag)
 		}
 
-		// For HEAD, send headers only (no body)
+		// For HEAD, send headers only (and length for caches/proxies).
 		if r.Method == http.MethodHead {
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 			w.WriteHeader(http.StatusOK)
 			return
 		}

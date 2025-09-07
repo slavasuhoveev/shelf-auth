@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/slavasuhoveev/shelf-auth/internal/httpserver"
 	"github.com/slavasuhoveev/shelf-auth/internal/logging"
 	"github.com/slavasuhoveev/shelf-auth/internal/repo/postgres"
+	"github.com/slavasuhoveev/shelf-auth/internal/security"
 	"github.com/slavasuhoveev/shelf-auth/internal/service"
 )
 
@@ -32,28 +34,58 @@ func main() {
 	logger := logging.New(cfg.LogLevel)
 	logger.Info().Msg("config loaded")
 
-	// Open database connection (e.g., Postgres via pgxpool).
-	// Ensure it is closed on application exit.
+	// Open database connection (Postgres via pgxpool) and ensure it is closed on exit.
 	db, err := postgres.Open(cfg.DatabaseURL)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("failed to open database")
 	}
 	defer db.Close()
 
-	// Initialize JWT signer (private keys, KID, algorithm, TTL)
-	// and JWKS provider for publishing public keys.
-	s := signer.New(cfg.KeysDir, cfg.SigningKeyKID, cfg.JWTAlg, cfg.AccessTTL)
+	// Initialize key material:
+	// - JWT access-token signer (RS256 with KID/issuer/audience)
+	// - JWKS provider to expose public keys at /.well-known/jwks.json
+	// load RSA private key from devkeys/<kid>.pem
+	keyPath := filepath.Join(cfg.KeysDir, cfg.SigningKeyKID+".pem")
+	privKey, err := signer.LoadRSAPrivateKeyFromPEM(keyPath)
+	if err != nil {
+		logger.Fatal().Err(err).Str("key", keyPath).Msg("failed to load private key")
+	}
+
+	// build access signer (RS256). alg из cfg сейчас не нужен здесь.
+	accessSigner := signer.NewAccessSigner(
+		privKey,
+		cfg.SigningKeyKID,
+		cfg.JWTIss,
+		cfg.JWTAud,
+	)
+
 	j := jwks.NewProvider(cfg.KeysDir, cfg.JWTAlg, cfg.JWKSMaxAge)
 
-	// Build business service layer (register/login/refresh/logout).
-	svc := service.New(db, s)
+	// Wire repositories.
+	usersRepo := postgres.NewUsersRepo(db)
+	sessionsRepo := postgres.NewSessionsRepo(db)
+
+	// Password hashing options (bcrypt cost, optional pepper).
+	pwOpts := security.DefaultOptions()
+	// If you use pepper, uncomment:
+	// pwOpts.Pepper = []byte(cfg.PasswordPepper)
+
+	// Build auth service layer (login/refresh/logout to be added progressively).
+	authSvc := service.NewAuthService(
+		usersRepo,
+		sessionsRepo,
+		accessSigner,   // implements tokens.Signer for access JWTs
+		cfg.AccessTTL,  // access token TTL
+		cfg.RefreshTTL, // refresh token TTL
+		pwOpts,
+	)
 
 	// Setup HTTP router with handlers, middlewares, and JWKS endpoint.
-	router := httpserver.NewRouter(svc, j, logger)
+	router := httpserver.NewRouter(authSvc, j, logger)
 
 	// Configure HTTP server with sane defaults and timeouts.
 	srv := &http.Server{
-		Addr:              cfg.HTTPAddr,
+		Addr:              cfg.HTTPAddr, // e.g. ":8081"
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,

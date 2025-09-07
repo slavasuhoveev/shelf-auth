@@ -1,5 +1,19 @@
 version: "3.9"
 
+# Reusable environment block (DRY)
+x-env-base: &env_base
+  ENV: ${ENV:-dev}
+  HTTP_ADDR: ${HTTP_ADDR}
+  LOG_LEVEL: ${LOG_LEVEL}
+  JWT_ALG: ${JWT_ALG}
+  JWT_ISS: ${JWT_ISS}
+  JWT_AUD: ${JWT_AUD}
+  ACCESS_TTL: ${ACCESS_TTL}
+  JWKS_MAX_AGE: ${JWKS_MAX_AGE}
+  KEYS_DIR: ${KEYS_DIR}
+  SIGNING_KEY_KID: ${SIGNING_KEY_KID}
+  DATABASE_URL: ${DATABASE_URL}
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -26,15 +40,13 @@ services:
         condition: service_healthy
     volumes:
       - ./migrations:/migrations:ro
-    # Use DATABASE_URL from your environment (export in shell or .env)
-    entrypoint: ["/bin/sh", "-c"]
-    command: >
-      'test -n "$$DATABASE_URL" ||
-       (echo "DATABASE_URL env var is required" && exit 1);
-       migrate -path=/migrations -database "$$DATABASE_URL" up'
     environment:
-      # Example: postgres://shelf:shelf@postgres:5432/shelf_auth?sslmode=disable
-      DATABASE_URL: ${DATABASE_URL:-}
+      <<: *env_base
+    entrypoint: ["/bin/sh", "-lc"]
+    command: >
+      test -n "$$DATABASE_URL" ||
+        { echo "DATABASE_URL env var is required"; exit 1; };
+      migrate -path=/migrations -database "$$DATABASE_URL" up
 
   auth:
     build: .
@@ -43,21 +55,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      ENV: dev
-      HTTP_ADDR: ":8080"
-      LOG_LEVEL: "debug"
-      JWT_ALG: "RS256"
-      JWT_ISS: "shelf-auth"
-      JWT_AUD: "shelf-api"
-      ACCESS_TTL: "15m"
-      JWKS_MAX_AGE: "300s"
-      KEYS_DIR: "/run/secrets/keys"
-      SIGNING_KEY_KID: "k1-2025-08-30"
-      # IMPORTANT: point to the docker network hostname "postgres"
-      DATABASE_URL: "postgres://shelf:shelf@postgres:5432/shelf_auth?sslmode=disable"
+      <<: *env_base
     ports:
       - "8081:8080"
     volumes:
+      # mount dev keys into container path from KEYS_DIR
       - ./devkeys:/run/secrets/keys:ro
 
 volumes:
