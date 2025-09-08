@@ -67,7 +67,7 @@ func LoginHandler(auth *service.AuthService, logger zerolog.Logger) http.Handler
 			Value:    res.RefreshToken,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   true, // если тестируешь на http, временно можно поставить false
+			Secure:   true,
 			SameSite: http.SameSiteLaxMode,
 			Expires:  res.RefreshExp,
 			MaxAge:   int(time.Until(res.RefreshExp).Seconds()),

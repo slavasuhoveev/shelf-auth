@@ -10,7 +10,7 @@ x-env-base: &env_base
   JWT_AUD: ${JWT_AUD}
   ACCESS_TTL: ${ACCESS_TTL}
   JWKS_MAX_AGE: ${JWKS_MAX_AGE}
-  KEYS_DIR: ${KEYS_DIR}
+  KEYS_DIR: /run/secrets/keys
   SIGNING_KEY_KID: ${SIGNING_KEY_KID}
   DATABASE_URL: ${DATABASE_URL}
 
@@ -42,11 +42,11 @@ services:
       - ./migrations:/migrations:ro
     environment:
       <<: *env_base
-    entrypoint: ["/bin/sh", "-lc"]
+    entrypoint: ["/bin/sh", "-c"]
     command: >
-      test -n "$$DATABASE_URL" ||
-        { echo "DATABASE_URL env var is required"; exit 1; };
-      migrate -path=/migrations -database "$$DATABASE_URL" up
+      'test -n "$$DATABASE_URL" ||
+       { echo "DATABASE_URL env var is required"; exit 1; };
+       migrate -path=/migrations -database "$$DATABASE_URL" up'
 
   auth:
     build: .

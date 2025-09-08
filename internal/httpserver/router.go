@@ -40,7 +40,9 @@ func NewRouter(authSvc *service.AuthService, jwks JWKSProvider, log zerolog.Logg
 	r.Get("/.well-known/jwks.json", handlers.JWKSHandler(jwks))
 	r.Head("/.well-known/jwks.json", handlers.JWKSHandler(jwks)) // accept HEAD too
 
+	// Auth
 	r.Post("/login", handlers.LoginHandler(authSvc, log))
+	r.Post("/register", handlers.RegisterHandler(authSvc, log))
 
 	return r
 }

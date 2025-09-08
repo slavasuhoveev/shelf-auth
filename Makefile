@@ -93,7 +93,8 @@ test-unit-pkg:
 # Run inside compose network; override DATABASE_URL to container URL
 # -----------------------------
 migrate-up:
-	DATABASE_URL="$(DOCKER_DATABASE_URL)" docker compose run --rm migrate
+	DATABASE_URL="$(DOCKER_DATABASE_URL)" \
+	docker-compose run --rm migrate
 
 migrate-down:
 	DATABASE_URL="$(DOCKER_DATABASE_URL)" docker compose run --rm migrate /bin/sh -lc 'migrate -path=/migrations -database "$$DATABASE_URL" down 1'
