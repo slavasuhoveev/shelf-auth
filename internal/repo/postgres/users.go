@@ -2,8 +2,10 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/slavasuhoveev/shelf-auth/internal/domain"
 )
 
@@ -33,4 +35,30 @@ WHERE email = $1
 	}
 	u.Email = parsed
 	return &u, nil
+}
+
+// Insert creates a new user and returns its ID.
+// Maps unique violation (email) to domain.ErrEmailAlreadyTaken.
+func (r *UsersRepo) Insert(ctx context.Context, u *domain.User) (domain.ID, error) {
+	const q = `
+INSERT INTO users (email, password_hash, email_verified, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id
+`
+	var id domain.ID
+	err := r.db.Pool().QueryRow(ctx, q,
+		u.Email.String(),
+		u.PasswordHash,
+		u.EmailVerified,
+		u.CreatedAt,
+		u.UpdatedAt,
+	).Scan(&id)
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+			return 0, domain.ErrEmailAlreadyTaken
+		}
+		return 0, err
+	}
+	return id, nil
 }
