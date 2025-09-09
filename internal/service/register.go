@@ -7,10 +7,6 @@ import (
 	"github.com/slavasuhoveev/shelf-auth/internal/security"
 )
 
-type UsersWriter interface {
-	Insert(ctx context.Context, u *domain.User) (domain.ID, error)
-}
-
 type RegisterResult struct {
 	ID    domain.ID
 	Email string
