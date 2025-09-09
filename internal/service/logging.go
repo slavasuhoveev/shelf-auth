@@ -11,16 +11,6 @@ import (
 	"github.com/slavasuhoveev/shelf-auth/internal/tokens"
 )
 
-// UsersReader is minimal interface for fetching users.
-type UsersReader interface {
-	FindByEmail(ctx context.Context, email domain.Email) (*domain.User, error)
-}
-
-// SessionsWriter is minimal interface for creating sessions.
-type SessionsWriter interface {
-	Create(ctx context.Context, s *domain.Session) (domain.ID, error)
-}
-
 type AuthService struct {
 	users    UsersReader
 	sessions SessionsWriter
@@ -101,7 +91,7 @@ func (s *AuthService) Login(ctx context.Context, emailRaw, password, deviceID, i
 		return nil, err
 	}
 
-	if _, err := s.sessions.Create(ctx, sess); err != nil {
+	if err := s.sessions.Create(ctx, sess); err != nil {
 		return nil, err
 	}
 

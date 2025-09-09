@@ -10,6 +10,9 @@ var (
 	ErrInvalidDeviceID   = errors.New("invalid device id")
 	ErrInvalidJTI        = errors.New("invalid jti")
 
+	// Generic not-found for repositories
+	ErrNotFound = errors.New("not found")
+
 	// Auth / session
 	ErrInvalidCredentials   = errors.New("invalid credentials")
 	ErrEmailAlreadyTaken    = errors.New("email already taken")
@@ -17,4 +20,9 @@ var (
 	ErrSessionExpired       = errors.New("session expired")
 	ErrSessionRevoked       = errors.New("session revoked")
 	ErrRefreshReuseDetected = errors.New("refresh token reuse detected")
+	ErrMissingRefresh       = errors.New("refresh token missing")
+	ErrInvalidRefresh       = errors.New("invalid refresh token")
+	ErrExpiredRefresh       = errors.New("refresh token expired")
+	ErrRevokedRefresh       = errors.New("refresh token revoked")
+	ErrReusedRefresh        = errors.New("refresh token reuse detected")
 )

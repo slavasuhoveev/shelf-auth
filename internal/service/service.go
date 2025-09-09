@@ -1,4 +1,3 @@
-// internal/service/service.go
 package service
 
 import "github.com/slavasuhoveev/shelf-auth/internal/auth/signer"

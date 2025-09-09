@@ -43,6 +43,7 @@ func NewRouter(authSvc *service.AuthService, jwks JWKSProvider, log zerolog.Logg
 	// Auth
 	r.Post("/login", handlers.LoginHandler(authSvc, log))
 	r.Post("/register", handlers.RegisterHandler(authSvc, log))
+	r.Post("/refresh", handlers.RefreshHandler(authSvc, log))
 
 	return r
 }
