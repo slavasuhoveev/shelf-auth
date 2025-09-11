@@ -84,3 +84,13 @@ WHERE user_id = $1 AND device_id = $2 AND revoked_at IS NULL;`
 	_, err := r.db.Pool().Exec(ctx, q, userID, deviceID, at)
 	return err
 }
+
+// RevokeByHash sets revoked_at for the session row with given refresh hash.
+func (r *SessionsRepo) RevokeByHash(ctx context.Context, hashHex string, at time.Time) error {
+	const q = `
+UPDATE sessions
+SET revoked_at = $2
+WHERE refresh_hash = $1 AND revoked_at IS NULL;`
+	_, err := r.db.Pool().Exec(ctx, q, hashHex, at)
+	return err
+}

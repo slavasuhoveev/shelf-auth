@@ -23,4 +23,5 @@ type SessionsWriter interface {
 	Create(ctx context.Context, s *domain.Session) error
 	Rotate(ctx context.Context, oldJTI string, newS *domain.Session) error
 	RevokeAllByUserAndDevice(ctx context.Context, userID domain.ID, deviceID string, at time.Time) error
+	RevokeByHash(ctx context.Context, hashHex string, at time.Time) error
 }

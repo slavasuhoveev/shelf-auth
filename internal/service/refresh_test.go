@@ -80,6 +80,10 @@ func (m *memSessions) RevokeAllByUserAndDevice(_ context.Context, userID domain.
 	return nil
 }
 
+func (m *memSessions) RevokeByHash(_ context.Context, _ string, _ time.Time) error {
+	return nil
+}
+
 // ---- helpers ----
 
 func newSvc(t *testing.T) *AuthService {
