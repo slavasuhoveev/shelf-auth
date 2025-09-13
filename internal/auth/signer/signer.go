@@ -1,6 +1,7 @@
 package signer
 
 import (
+	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -15,33 +17,54 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/slavasuhoveev/shelf-auth/internal/tokens"
 )
 
 // Signer signs access tokens with RS256 using a selected private key (by kid).
 // It loads all PEM keys from keysDir and keeps them in memory.
 type Signer struct {
-	keysDir string
-	alg     jwa.SignatureAlgorithm
-	kid     string
-	ttl     time.Duration
+	keysDir  string
+	alg      jwa.SignatureAlgorithm
+	kid      string
+	ttl      time.Duration
+	issuer   string
+	audience string
 
 	mu    sync.RWMutex
 	keys  map[string]*rsa.PrivateKey // kid -> private key
 	ready bool
 }
 
-// New creates a Signer that uses keys in keysDir and signs with the provided kid.
-// alg must be "RS256".
-func New(keysDir, kid, alg string, ttl time.Duration) *Signer {
+// New loads all PEM keys from keysDir and signs with the provided active kid.
+func New(keysDir, kid, alg string, ttl time.Duration, issuer, audience string) *Signer {
 	s := &Signer{
-		keysDir: keysDir,
-		alg:     jwa.SignatureAlgorithm(alg),
-		kid:     kid,
-		ttl:     ttl,
-		keys:    make(map[string]*rsa.PrivateKey),
+		keysDir:  keysDir,
+		alg:      jwa.SignatureAlgorithm(alg),
+		kid:      kid,
+		ttl:      ttl,
+		issuer:   issuer,
+		audience: audience,
+		keys:     make(map[string]*rsa.PrivateKey),
 	}
 	_ = s.reload()
 	return s
+}
+
+// SetActiveKid switches the active kid at runtime if it exists in memory.
+// If the PEM file was just added, call Reload() first.
+func (s *Signer) SetActiveKid(kid string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.keys[kid]; !ok {
+		return fmt.Errorf("kid not loaded: %s", kid)
+	}
+	s.kid = kid
+	return nil
+}
+
+// Reload rescans keysDir for .pem files and reloads the in-memory map.
+func (s *Signer) Reload() error {
+	return s.reload()
 }
 
 // reload scans keysDir for .pem files and populates the key map.
@@ -73,40 +96,60 @@ func (s *Signer) reload() error {
 	return nil
 }
 
-// SignAccess issues a signed JWT with standard and custom claims.
-// roles is optional and may be empty.
-func (s *Signer) SignAccess(sub, iss, aud string, roles []string) (string, error) {
+// StartAutoReload periodically reloads the keys from keysDir.
+func (s *Signer) StartAutoReload(ctx context.Context, interval time.Duration) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			_ = s.reload()
+		}
+	}
+}
+
+func (s *Signer) SignAccess(claims tokens.AccessClaims, ttl time.Duration) (string, time.Time, error) {
 	s.mu.RLock()
 	priv, ok := s.keys[s.kid]
 	alg := s.alg
-	ttl := s.ttl
+	iss := s.issuer
+	aud := s.audience
 	s.mu.RUnlock()
 
 	if !ok {
-		return "", fmt.Errorf("signing key not found: kid=%s", s.kid)
+		return "", time.Time{}, fmt.Errorf("signing key not found: kid=%s", s.kid)
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
+	exp := now.Add(ttl)
+
 	t := jwt.New()
 	_ = t.Set(jwt.IssuerKey, iss)
 	_ = t.Set(jwt.AudienceKey, aud)
-	_ = t.Set(jwt.SubjectKey, sub)
 	_ = t.Set(jwt.IssuedAtKey, now)
-	_ = t.Set(jwt.ExpirationKey, now.Add(ttl))
-	if len(roles) > 0 {
-		_ = t.Set("roles", roles)
-	}
+	_ = t.Set(jwt.NotBeforeKey, now)
+	_ = t.Set(jwt.ExpirationKey, exp)
 
-	// Attach protected header with kid and alg.
+	// subject = user id as string
+	_ = t.Set(jwt.SubjectKey, strconv.FormatInt(claims.UserID, 10))
+
+	// custom claims
+	if claims.Email != "" {
+		_ = t.Set("email", claims.Email)
+	}
+	_ = t.Set("uid", claims.UserID)
+
 	hdr := jws.NewHeaders()
 	_ = hdr.Set(jws.KeyIDKey, s.kid)
 	_ = hdr.Set(jws.AlgorithmKey, alg)
 
-	b, err := jwt.Sign(t, jwt.WithKey(alg, priv, jws.WithProtectedHeaders(hdr)))
+	signed, err := jwt.Sign(t, jwt.WithKey(alg, priv, jws.WithProtectedHeaders(hdr)))
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
-	return string(b), nil
+	return string(signed), exp, nil
 }
 
 func loadRSAPrivate(path string) (*rsa.PrivateKey, error) {
