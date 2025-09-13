@@ -14,6 +14,18 @@ body:
       required: true
 
   - type: textarea
+    id: equirements
+    attributes:
+      label: Requirements
+      description: Technical requirements and constraints, step-by-step checklist.
+      placeholder: |
+        - [ ] First criterion
+        - [ ] Second criterion
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
     id: acceptance
     attributes:
       label: Acceptance Criteria

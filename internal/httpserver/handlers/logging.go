@@ -25,7 +25,7 @@ type LoginResponse struct {
 	AccessExpiresAt time.Time `json:"access_expires_at"`
 }
 
-func LoginHandler(auth *service.AuthService, logger zerolog.Logger) http.HandlerFunc {
+func LoginHandler(auth *service.AuthService, logger zerolog.Logger, cookieCfg CookieCfg) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -61,17 +61,8 @@ func LoginHandler(auth *service.AuthService, logger zerolog.Logger) http.Handler
 			}
 		}
 
-		// HttpOnly refresh cookie
-		http.SetCookie(w, &http.Cookie{
-			Name:     "refresh_token",
-			Value:    res.RefreshToken,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-			Expires:  res.RefreshExp,
-			MaxAge:   int(time.Until(res.RefreshExp).Seconds()),
-		})
+		// set rotated refresh cookie with config flags
+		setRefreshCookie(w, res.RefreshToken, res.RefreshExp, cookieCfg)
 
 		writeJSON(w, http.StatusOK, LoginResponse{
 			AccessToken:     res.AccessToken,

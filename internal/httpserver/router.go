@@ -6,9 +6,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	chiCors "github.com/go-chi/cors"
 	"github.com/rs/zerolog"
 
 	"github.com/slavasuhoveev/shelf-auth/internal/httpserver/handlers"
+	"github.com/slavasuhoveev/shelf-auth/internal/httpserver/middleware"
 	"github.com/slavasuhoveev/shelf-auth/internal/service"
 )
 
@@ -18,33 +20,50 @@ type JWKSProvider interface {
 	Current() (body []byte, etag string, maxAge time.Duration)
 }
 
+type Options struct {
+	CORSOrigins []string
+	CookieCfg   handlers.CookieCfg
+}
+
 // Service is the application service interface (register/login/refresh/logout).
 // It is injected here for future endpoints.
 type Service interface{}
 
 // NewRouter wires middlewares and routes, delegating request handling to handlers.
-func NewRouter(authSvc *service.AuthService, jwks JWKSProvider, log zerolog.Logger) http.Handler {
+func NewRouter(authSvc *service.AuthService, jwks JWKSProvider, log zerolog.Logger, opts Options) http.Handler {
 	r := chi.NewRouter()
 
-	// Core middlewares (keep them minimal to avoid surprises).
+	// Core middlewares
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
 	r.Use(chimw.Recoverer)
 	r.Use(chimw.Timeout(10 * time.Second))
+	r.Use(middleware.SecurityHeaders)
 
-	// Health endpoint (liveness). A separate /readyz can be added later.
+	// CORS (only if configured)
+	if len(opts.CORSOrigins) > 0 {
+		r.Use(chiCors.Handler(chiCors.Options{
+			AllowedOrigins:   opts.CORSOrigins,
+			AllowedMethods:   []string{"GET", "POST", "HEAD", "OPTIONS"},
+			AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Device-ID"},
+			AllowCredentials: true,
+			MaxAge:           300,
+		}))
+	}
+
+	// Health
 	r.Get("/healthz", handlers.HealthHandler())
 	r.Head("/healthz", handlers.HealthHandler())
 
-	// JWKS endpoint for gateways to fetch public keys.
+	// JWKS
 	r.Get("/.well-known/jwks.json", handlers.JWKSHandler(jwks))
-	r.Head("/.well-known/jwks.json", handlers.JWKSHandler(jwks)) // accept HEAD too
+	r.Head("/.well-known/jwks.json", handlers.JWKSHandler(jwks))
 
 	// Auth
-	r.Post("/login", handlers.LoginHandler(authSvc, log))
-	r.Post("/logout", handlers.LogoutHandler(authSvc, log))
 	r.Post("/register", handlers.RegisterHandler(authSvc, log))
-	r.Post("/refresh", handlers.RefreshHandler(authSvc, log))
+	r.Post("/login", handlers.LoginHandler(authSvc, log, opts.CookieCfg))
+	r.Post("/logout", handlers.LogoutHandler(authSvc, log, opts.CookieCfg))
+	r.Post("/refresh", handlers.RefreshHandler(authSvc, log, opts.CookieCfg))
 
 	return r
 }
