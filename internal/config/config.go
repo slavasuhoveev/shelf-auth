@@ -26,6 +26,14 @@ type Config struct {
 
 	// Database (wired later for /login etc.)
 	DatabaseURL string `env:"DATABASE_URL" envDefault:""`
+
+	// CORS
+	CORSOrigins []string `env:"CORS_ORIGINS" envSeparator:","`
+
+	// Cookies
+	CookieSecure   bool   `env:"COOKIE_SECURE" envDefault:"true"`
+	CookieSameSite string `env:"COOKIE_SAMESITE" envDefault:"Lax"`
+	CookieDomain   string `env:"COOKIE_DOMAIN"`
 }
 
 // Load parses environment variables into Config and validates required fields.

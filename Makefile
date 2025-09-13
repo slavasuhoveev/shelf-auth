@@ -20,6 +20,10 @@ ACCESS_TTL          ?= 15m
 JWKS_MAX_AGE        ?= 300s
 KEYS_DIR            ?= ./devkeys
 SIGNING_KEY_KID     ?= k1-2025-08-30
+CORS_ORIGINS=http://localhost:3000
+COOKIE_SECURE=false
+COOKIE_SAMESITE=None
+COOKIE_DOMAIN=
 
 # DB URLs:
 # - host running app needs localhost

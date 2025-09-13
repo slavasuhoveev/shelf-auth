@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/slavasuhoveev/shelf-auth/internal/domain"
@@ -13,7 +12,7 @@ import (
 	"github.com/slavasuhoveev/shelf-auth/internal/util"
 )
 
-func RefreshHandler(auth *service.AuthService, logger zerolog.Logger) http.HandlerFunc {
+func RefreshHandler(auth *service.AuthService, logger zerolog.Logger, cookieCfg CookieCfg) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie("refresh_token")
 		if err != nil || strings.TrimSpace(c.Value) == "" {
@@ -50,22 +49,9 @@ func RefreshHandler(auth *service.AuthService, logger zerolog.Logger) http.Handl
 			}
 		}
 
-		// Set rotated refresh cookie
-		http.SetCookie(w, &http.Cookie{
-			Name:     "refresh_token",
-			Value:    res.RefreshToken,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   true, // set false only for local http testing if needed
-			SameSite: http.SameSiteLaxMode,
-			Expires:  res.RefreshExp,
-			MaxAge:   int(time.Until(res.RefreshExp).Seconds()),
-		})
+		setRefreshCookie(w, res.RefreshToken, res.RefreshExp, cookieCfg)
 
-		writeJSON(w, http.StatusOK, struct {
-			AccessToken     string    `json:"access_token"`
-			AccessExpiresAt time.Time `json:"access_expires_at"`
-		}{
+		writeJSON(w, http.StatusOK, LoginResponse{
 			AccessToken:     res.AccessToken,
 			AccessExpiresAt: res.AccessExp,
 		})
