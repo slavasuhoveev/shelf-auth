@@ -1,6 +1,7 @@
 package jwks
 
 import (
+	"context"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
@@ -53,6 +54,26 @@ func (p *Provider) Current() ([]byte, string, time.Duration) {
 		return []byte(`{"keys":[]}`), `W/"jwks-empty"`, p.maxAge
 	}
 	return p.body, p.etag, p.maxAge
+}
+
+// Public refresh
+func (p *Provider) Refresh() error {
+	return p.refresh()
+}
+
+// StartAutoRefresh periodically rescans keysDir and updates JWKS/ETag when changed.
+// It exits when ctx is cancelled. If something goes wrong, we keep the last good JWKS.
+func (p *Provider) StartAutoRefresh(ctx context.Context, interval time.Duration) {
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			_ = p.refresh() // best-effort; keep last good on error
+		}
+	}
 }
 
 // refresh scans the directory, builds a jwk.Set, and caches the serialized JSON.

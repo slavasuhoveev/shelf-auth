@@ -93,6 +93,15 @@ test-unit-pkg:
 	go test -tags=unit -v $(TEST_FLAGS) $(PKG)
 
 # -----------------------------
+# Integration tests
+# -----------------------------
+test-int:
+	go test -tags=integration $(TEST_FLAGS) $(PKG)
+
+test-int-v:
+	go test -tags=integration -v $(TEST_FLAGS) $(PKG)
+
+# -----------------------------
 # Migrations (migrate/migrate:4)
 # Run inside compose network; override DATABASE_URL to container URL
 # -----------------------------

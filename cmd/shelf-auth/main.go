@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -42,25 +42,37 @@ func main() {
 	}
 	defer db.Close()
 
-	// Initialize key material:
-	// - JWT access-token signer (RS256 with KID/issuer/audience)
-	// - JWKS provider to expose public keys at /.well-known/jwks.json
-	// load RSA private key from devkeys/<kid>.pem
-	keyPath := filepath.Join(cfg.KeysDir, cfg.SigningKeyKID+".pem")
-	privKey, err := signer.LoadRSAPrivateKeyFromPEM(keyPath)
-	if err != nil {
-		logger.Fatal().Err(err).Str("key", keyPath).Msg("failed to load private key")
-	}
+	// Initialize JWKS provider (publishes ALL public keys from KEYS_DIR).
+	j := jwks.NewProvider(cfg.KeysDir, cfg.JWTAlg, cfg.JWKSMaxAge)
 
-	// build access signer (RS256). alg из cfg сейчас не нужен здесь.
-	accessSigner := signer.NewAccessSigner(
-		privKey,
+	// Initialize signer: loads keys, keeps active KID, embeds iss/aud.
+	sign := signer.New(
+		cfg.KeysDir,
 		cfg.SigningKeyKID,
+		cfg.JWTAlg,
+		cfg.AccessTTL,
 		cfg.JWTIss,
 		cfg.JWTAud,
 	)
 
-	j := jwks.NewProvider(cfg.KeysDir, cfg.JWTAlg, cfg.JWKSMaxAge)
+	// Optional: runtime override of active KID (useful for hot rotation without restart).
+	if kid := strings.TrimSpace(cfg.ActiveKIDRuntime); kid != "" && kid != cfg.SigningKeyKID {
+		if err := sign.SetActiveKid(kid); err != nil {
+			logger.Warn().Err(err).Str("kid", kid).Msg("failed to switch active kid at startup; continuing with SIGNING_KEY_KID")
+		} else {
+			logger.Info().Str("kid", kid).Msg("active kid overridden at startup")
+		}
+	}
+
+	// Create a context that cancels on SIGINT/SIGTERM (Ctrl+C / docker stop).
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Start periodic reloaders (best-effort; keep last good state on errors).
+	if cfg.KeysReloadInterval > 0 {
+		go sign.StartAutoReload(ctx, cfg.KeysReloadInterval)
+		go j.StartAutoRefresh(ctx, cfg.KeysReloadInterval)
+	}
 
 	// Wire repositories.
 	usersRepo := postgres.NewUsersRepo(db)
@@ -71,11 +83,11 @@ func main() {
 	// If you use pepper, uncomment:
 	// pwOpts.Pepper = []byte(cfg.PasswordPepper)
 
-	// Build auth service layer (login/refresh/logout to be added progressively).
+	// Build auth service layer (register/login/refresh/logout).
 	authSvc := service.NewAuthService(
 		usersRepo,
 		sessionsRepo,
-		accessSigner,   // implements tokens.Signer for access JWTs
+		sign,           // signer signs access JWTs with active KID
 		cfg.AccessTTL,  // access token TTL
 		cfg.RefreshTTL, // refresh token TTL
 		pwOpts,
@@ -100,10 +112,6 @@ func main() {
 		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-
-	// Create context that cancels on interrupt/terminate signals.
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	// Channel to capture server errors.
 	errCh := make(chan error, 1)

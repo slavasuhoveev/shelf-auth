@@ -24,6 +24,10 @@ type Config struct {
 	KeysDir       string        `env:"KEYS_DIR"       envDefault:"./devkeys"`
 	SigningKeyKID string        `env:"SIGNING_KEY_KID" envDefault:""`
 
+	// Keys/JWKS rotation helpers
+	KeysReloadInterval time.Duration `env:"KEYS_RELOAD_INTERVAL" envDefault:"60s"`
+	ActiveKIDRuntime   string        `env:"ACTIVE_KID_RUNTIME"`
+
 	// Database (wired later for /login etc.)
 	DatabaseURL string `env:"DATABASE_URL" envDefault:""`
 
