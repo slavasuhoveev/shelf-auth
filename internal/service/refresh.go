@@ -20,7 +20,7 @@ type RefreshResult struct {
 	RefreshExp   time.Time
 }
 
-func (s *AuthService) Refresh(ctx context.Context, rawRefresh, deviceID, ip, ua string) (*RefreshResult, error) {
+func (s *AuthService) Refresh(ctx context.Context, rawRefresh, deviceID, ipStr, user_agent string) (*RefreshResult, error) {
 	if !nonEmpty(rawRefresh) {
 		return nil, domain.ErrMissingRefresh
 	}
@@ -54,7 +54,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefresh, deviceID, ip, ua 
 
 	// Sign new access
 	acc, exp, err := s.signer.SignAccess(tokens.AccessClaims{
-		UserID: int64(sess.UserID),
+		UserID: sess.UserID.String(),
 		Email:  "", // optional: load user or persist email in sessions if needed
 	}, s.accessTTL)
 	if err != nil {
@@ -68,13 +68,18 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefresh, deviceID, ip, ua 
 	}
 	newHash := security.HashSHA256Hex(newRaw)
 
+	parsedIP, err := domain.ParseIP(ipStr)
+	if err != nil {
+		return nil, err
+	}
+
 	newSess := &domain.Session{
 		UserID:      sess.UserID,
 		JTI:         uuid.NewString(),
 		RefreshHash: newHash,
 		DeviceID:    deviceID,
-		IP:          ip,
-		UserAgent:   ua,
+		IP:          parsedIP,
+		UserAgent:   user_agent,
 		CreatedAt:   now,
 		ExpiresAt:   now.Add(s.refreshTTL),
 	}

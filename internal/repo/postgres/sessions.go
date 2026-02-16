@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"net"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -18,7 +19,7 @@ func NewSessionsRepo(db *DB) *SessionsRepo { return &SessionsRepo{db: db} }
 // Create inserts a new session and returns its ID.
 func (r *SessionsRepo) Create(ctx context.Context, s *domain.Session) error {
 	const q = `
-INSERT INTO sessions (user_id, jti, refresh_hash, device_id, ip, ua, created_at, expires_at)
+INSERT INTO sessions (user_id, jti, refresh_hash, device_id, ip, user_agent, created_at, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`
 	_, err := r.db.Pool().Exec(ctx, q,
 		s.UserID, s.JTI, s.RefreshHash, s.DeviceID, s.IP, s.UserAgent, s.CreatedAt, s.ExpiresAt,
@@ -29,14 +30,15 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`
 // FindByHash returns a session row by refresh hash.
 func (r *SessionsRepo) FindByHash(ctx context.Context, hashHex string) (*domain.Session, error) {
 	const q = `
-SELECT id, user_id, jti, refresh_hash, device_id, ip, ua, created_at, expires_at, replaced_by, revoked_at
+SELECT id, user_id, jti, refresh_hash, device_id, ip, user_agent, created_at, expires_at, replaced_by, revoked_at
 FROM sessions
 WHERE refresh_hash = $1
 LIMIT 1`
 	row := r.db.Pool().QueryRow(ctx, q, hashHex)
 	var s domain.Session
+	var rawIP net.IP
 	if err := row.Scan(
-		&s.ID, &s.UserID, &s.JTI, &s.RefreshHash, &s.DeviceID, &s.IP, &s.UserAgent,
+		&s.ID, &s.UserID, &s.JTI, &s.RefreshHash, &s.DeviceID, &rawIP, &s.UserAgent,
 		&s.CreatedAt, &s.ExpiresAt, &s.ReplacedBy, &s.RevokedAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -44,6 +46,9 @@ LIMIT 1`
 		}
 		return nil, err
 	}
+
+	s.IP = domain.NewIPFromNet(rawIP)
+
 	return &s, nil
 }
 
@@ -57,7 +62,7 @@ func (r *SessionsRepo) Rotate(ctx context.Context, oldJTI string, newS *domain.S
 
 	// Insert new session
 	const ins = `
-INSERT INTO sessions (user_id, jti, refresh_hash, device_id, ip, ua, created_at, expires_at)
+INSERT INTO sessions (user_id, jti, refresh_hash, device_id, ip, user_agent, created_at, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`
 	if _, err := tx.Exec(ctx, ins,
 		newS.UserID, newS.JTI, newS.RefreshHash, newS.DeviceID, newS.IP, newS.UserAgent,

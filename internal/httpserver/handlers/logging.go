@@ -40,9 +40,9 @@ func LoginHandler(auth *service.AuthService, logger zerolog.Logger, cookieCfg Co
 		}
 
 		ip := util.ClientIP(r)
-		ua := r.UserAgent()
+		user_agent := r.UserAgent()
 
-		res, err := auth.Login(r.Context(), req.Email, req.Password, req.DeviceID, ip, ua)
+		res, err := auth.Login(r.Context(), req.Email, req.Password, req.DeviceID, ip, user_agent)
 		if err != nil {
 			// log full error (with stack/context where)
 			logger.Error().Err(err).Str("email", req.Email).Str("device_id", req.DeviceID).Msg("login failed")

@@ -17,7 +17,7 @@ type RegisterRequest struct {
 }
 
 type RegisterResponse struct {
-	ID    int64  `json:"id"`
+	ID    string `json:"id"`
 	Email string `json:"email"`
 }
 
@@ -52,7 +52,7 @@ func RegisterHandler(auth *service.AuthService, logger zerolog.Logger) http.Hand
 
 		w.WriteHeader(http.StatusCreated)
 		_ = json.NewEncoder(w).Encode(RegisterResponse{
-			ID:    int64(res.ID),
+			ID:    res.ID.String(),
 			Email: res.Email,
 		})
 	}

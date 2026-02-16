@@ -94,14 +94,20 @@ func main() {
 	)
 
 	// Setup HTTP router with handlers, middlewares, and JWKS endpoint.
-	router := httpserver.NewRouter(authSvc, j, logger, httpserver.Options{
-		CORSOrigins: cfg.CORSOrigins,
-		CookieCfg: handlers.CookieCfg{
-			Secure:   cfg.CookieSecure,
-			SameSite: httpserver.ParseSameSite(cfg.CookieSameSite),
-			Domain:   cfg.CookieDomain,
+	router := httpserver.NewRouter(
+		authSvc,
+		accessSigner,
+		j,
+		logger,
+		httpserver.Options{
+			CORSOrigins: cfg.CORSOrigins,
+			CookieCfg: handlers.CookieCfg{
+				Secure:   cfg.CookieSecure,
+				SameSite: httpserver.ParseSameSite(cfg.CookieSameSite),
+				Domain:   cfg.CookieDomain,
+			},
 		},
-	})
+	)
 
 	// Configure HTTP server with sane defaults and timeouts.
 	srv := &http.Server{

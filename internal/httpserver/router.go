@@ -12,6 +12,7 @@ import (
 	"github.com/slavasuhoveev/shelf-auth/internal/httpserver/handlers"
 	"github.com/slavasuhoveev/shelf-auth/internal/httpserver/middleware"
 	"github.com/slavasuhoveev/shelf-auth/internal/service"
+	"github.com/slavasuhoveev/shelf-auth/internal/tokens"
 )
 
 // JWKSProvider exposes the current JWKS payload for the HTTP layer.
@@ -30,7 +31,13 @@ type Options struct {
 type Service interface{}
 
 // NewRouter wires middlewares and routes, delegating request handling to handlers.
-func NewRouter(authSvc *service.AuthService, jwks JWKSProvider, log zerolog.Logger, opts Options) http.Handler {
+func NewRouter(
+	authSvc *service.AuthService,
+	tokenVerifier tokens.Verifier,
+	jwks JWKSProvider,
+	log zerolog.Logger,
+	opts Options,
+) http.Handler {
 	r := chi.NewRouter()
 
 	// Core middlewares
@@ -50,7 +57,6 @@ func NewRouter(authSvc *service.AuthService, jwks JWKSProvider, log zerolog.Logg
 			MaxAge:           300,
 		}))
 	}
-
 	// Health
 	r.Get("/healthz", handlers.HealthHandler())
 	r.Head("/healthz", handlers.HealthHandler())
@@ -64,6 +70,10 @@ func NewRouter(authSvc *service.AuthService, jwks JWKSProvider, log zerolog.Logg
 	r.Post("/login", handlers.LoginHandler(authSvc, log, opts.CookieCfg))
 	r.Post("/logout", handlers.LogoutHandler(authSvc, log, opts.CookieCfg))
 	r.Post("/refresh", handlers.RefreshHandler(authSvc, log, opts.CookieCfg))
+	r.Route("/", func(r chi.Router) {
+		r.Use(middleware.AuthMiddleware(tokenVerifier, log))
+		r.Get("/me", handlers.MeHandler(authSvc, log))
+	})
 
 	return r
 }

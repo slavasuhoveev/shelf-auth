@@ -25,9 +25,9 @@ func RefreshHandler(auth *service.AuthService, logger zerolog.Logger, cookieCfg 
 			deviceID = "unknown"
 		}
 		ip := util.ClientIP(r)
-		ua := r.UserAgent()
+		user_agent := r.UserAgent()
 
-		res, svcErr := auth.Refresh(r.Context(), c.Value, deviceID, ip, ua)
+		res, svcErr := auth.Refresh(r.Context(), c.Value, deviceID, ip, user_agent)
 		if svcErr != nil {
 			logger.Warn().Err(svcErr).Str("device_id", deviceID).Msg("refresh failed")
 			switch {

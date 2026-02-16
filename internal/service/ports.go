@@ -9,6 +9,7 @@ import (
 
 // Users
 type UsersReader interface {
+	FindByID(ctx context.Context, id domain.ID) (*domain.User, error)
 	FindByEmail(ctx context.Context, email domain.Email) (*domain.User, error)
 }
 type UsersWriter interface {
