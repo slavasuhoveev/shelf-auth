@@ -1,16 +1,24 @@
 package domain
 
-import "time"
+import (
+	"fmt"
+	"net"
+	"time"
+)
 
 // Session models a refresh session for a particular user/device.
 // We store a hash of the opaque refresh token (never the raw token).
+type IP struct {
+	net.IP
+}
+
 type Session struct {
 	ID          ID
 	UserID      ID
 	DeviceID    string
 	JTI         string // unique identifier per refresh token instance
 	RefreshHash string // hash(opaque_refresh_token)
-	IP          string // optional: remote IP for audit
+	IP          *IP    // optional: remote IP for audit
 	UserAgent   string // optional: UA for audit
 	CreatedAt   time.Time
 	ExpiresAt   time.Time
@@ -18,10 +26,25 @@ type Session struct {
 	RevokedAt   *time.Time // set when session is force-revoked
 }
 
+// ParseIP validates and parses string IP.
+// Returns nil if empty.
+func ParseIP(ipStr string) (*IP, error) {
+	if ipStr == "" {
+		return nil, nil
+	}
+
+	parsed := net.ParseIP(ipStr)
+	if parsed == nil {
+		return nil, fmt.Errorf("invalid ip address: %s", ipStr)
+	}
+
+	return &IP{IP: parsed}, nil
+}
+
 // NewSession creates a new refresh session with the given TTL.
 // DeviceID and JTI must be non-empty. RefreshHash must be non-empty.
-func NewSession(userID ID, deviceID, jti, refreshHash, ip, ua string, ttl time.Duration) (*Session, error) {
-	if userID <= 0 {
+func NewSession(userID ID, deviceID, jti, refreshHash, ipStr, user_agent string, ttl time.Duration) (*Session, error) {
+	if userID.IsZero() {
 		return nil, ErrInvalidCredentials // or a dedicated ErrInvalidUserID, if needed
 	}
 	if !nonEmpty(deviceID) {
@@ -34,14 +57,20 @@ func NewSession(userID ID, deviceID, jti, refreshHash, ip, ua string, ttl time.D
 		return nil, ErrInvalidCredentials // keep generic; precise error can be added later
 	}
 
+	parsedIP, err := ParseIP(ipStr)
+	if err != nil {
+		return nil, err
+	}
+
 	now := Now()
+
 	return &Session{
 		UserID:      userID,
 		DeviceID:    deviceID,
 		JTI:         jti,
 		RefreshHash: refreshHash,
-		IP:          ip,
-		UserAgent:   ua,
+		IP:          parsedIP,
+		UserAgent:   user_agent,
 		CreatedAt:   now,
 		ExpiresAt:   now.Add(ttl),
 	}, nil

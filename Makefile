@@ -6,23 +6,25 @@
 # -----------------------------
 # Variables (defaults; override in shell or .env)
 # -----------------------------
-SVC                 ?= cmd/shelf-auth
-BIN                 ?= bin/shelf-auth
+PROJECT_NAME         = shelf-auth
+IMAGE               ?= $(PROJECT_NAME):develop
+SVC                 ?= cmd/$(PROJECT_NAME)
+BIN                 ?= bin/$(PROJECT_NAME)
 
 # App env
 ENV                 ?= dev
 HTTP_ADDR           ?= :8080
 LOG_LEVEL           ?= debug
 JWT_ALG             ?= RS256
-JWT_ISS             ?= shelf-auth
+JWT_ISS             ?= $(PROJECT_NAME)
 JWT_AUD             ?= shelf-api
 ACCESS_TTL          ?= 15m
 JWKS_MAX_AGE        ?= 300s
 KEYS_DIR            ?= ./devkeys
 SIGNING_KEY_KID     ?= k1-2025-08-30
-CORS_ORIGINS=http://localhost:3000
-COOKIE_SECURE=false
-COOKIE_SAMESITE=None
+CORS_ORIGINS        = http://localhost:3000
+COOKIE_SECURE       = false
+COOKIE_SAMESITE     = "Lax"
 COOKIE_DOMAIN=
 
 # DB URLs:
@@ -106,15 +108,21 @@ test-int-v:
 # Run inside compose network; override DATABASE_URL to container URL
 # -----------------------------
 migrate-up:
-	DATABASE_URL="$(DOCKER_DATABASE_URL)" \
-	docker-compose run --rm migrate
+	docker compose run --rm migrate \
+		-path=/migrations \
+		-database "$(DOCKER_DATABASE_URL)" up
 
 migrate-down:
-	DATABASE_URL="$(DOCKER_DATABASE_URL)" docker compose run --rm migrate /bin/sh -lc 'migrate -path=/migrations -database "$$DATABASE_URL" down 1'
+	docker compose run --rm migrate \
+		-path=/migrations \
+		-database "$(DOCKER_DATABASE_URL)" down 1
 
 migrate-force:
 	@read -p "Enter version to force: " v; \
-	DATABASE_URL="$(DOCKER_DATABASE_URL)" docker compose run --rm migrate /bin/sh -lc 'migrate -path=/migrations -database "$$DATABASE_URL" force '$$v
+	docker compose run --rm migrate \
+		-path=/migrations \
+		-database "$(DOCKER_DATABASE_URL)" \
+		force $$v
 
 # -----------------------------
 # Docker Compose helpers
@@ -136,7 +144,7 @@ compose-logs:
 # -----------------------------
 seed-user:
 	@hash=$$(go run ./tools/hashpw -password "$(SEED_PASSWORD)"); \
-	docker exec shelf-auth-postgres psql -U shelf -d shelf_auth -c "\
+	docker exec $(PROJECT_NAME)-postgres psql -U shelf -d shelf_auth -c "\
 		INSERT INTO users (email, password_hash, email_verified) \
 		VALUES ('$(SEED_EMAIL)', '$$hash', true) \
 		ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, email_verified = EXCLUDED.email_verified;"; \

@@ -42,7 +42,7 @@ type LoginResult struct {
 
 // Login authenticates the user, creates a refresh session and returns tokens.
 // DeviceID is provided by the client (e.g., random UUID per browser profile).
-func (s *AuthService) Login(ctx context.Context, emailRaw, password, deviceID, ip, ua string) (*LoginResult, error) {
+func (s *AuthService) Login(ctx context.Context, emailRaw, password, deviceID, ip, user_agent string) (*LoginResult, error) {
 	email, err := domain.ParseEmail(emailRaw)
 	if err != nil {
 		return nil, domain.ErrInvalidCredentials // don't leak validation details on login
@@ -66,7 +66,7 @@ func (s *AuthService) Login(ctx context.Context, emailRaw, password, deviceID, i
 
 	// Issue access token
 	access, accessExp, err := s.signer.SignAccess(tokens.AccessClaims{
-		UserID: u.ID,
+		UserID: u.ID.String(),
 		Email:  u.Email.String(),
 	}, s.accessTTL)
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *AuthService) Login(ctx context.Context, emailRaw, password, deviceID, i
 		return nil, err
 	}
 
-	sess, err := domain.NewSession(u.ID, deviceID, jti, refreshHash, ip, ua, s.refreshTTL)
+	sess, err := domain.NewSession(u.ID, deviceID, jti, refreshHash, ip, user_agent, s.refreshTTL)
 	if err != nil {
 		return nil, err
 	}

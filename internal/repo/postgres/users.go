@@ -37,6 +37,35 @@ WHERE email = $1
 	return &u, nil
 }
 
+// FindByID returns user by id or pgx.ErrNoRows.
+func (r *UsersRepo) FindByID(ctx context.Context, id domain.ID) (*domain.User, error) {
+	const q = `
+SELECT id, email, email_verified
+FROM users
+WHERE id = $1
+`
+	row := r.db.Pool().QueryRow(ctx, q, id)
+
+	var u domain.User
+	var eml string
+
+	if err := row.Scan(
+		&u.ID,
+		&eml,
+		&u.EmailVerified,
+	); err != nil {
+		return nil, err
+	}
+
+	parsed, err := domain.ParseEmail(eml)
+	if err != nil {
+		return nil, fmt.Errorf("parse email from db: %w", err)
+	}
+
+	u.Email = parsed
+	return &u, nil
+}
+
 // Insert creates a new user and returns its ID.
 // Maps unique violation (email) to domain.ErrEmailAlreadyTaken.
 func (r *UsersRepo) Insert(ctx context.Context, u *domain.User) (domain.ID, error) {
@@ -56,9 +85,9 @@ RETURNING id
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
-			return 0, domain.ErrEmailAlreadyTaken
+			return domain.ID{}, domain.ErrEmailAlreadyTaken
 		}
-		return 0, err
+		return domain.ID{}, err
 	}
 	return id, nil
 }

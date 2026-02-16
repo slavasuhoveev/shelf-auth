@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewSession_Success(t *testing.T) {
-	s, err := NewSession(1, "device", "jti1", "hash", "127.0.0.1", "ua", time.Hour)
+	s, err := NewSession(1, "device", "jti1", "hash", "127.0.0.1", "user_agent", time.Hour)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

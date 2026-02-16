@@ -25,4 +25,7 @@ var (
 	ErrExpiredRefresh       = errors.New("refresh token expired")
 	ErrRevokedRefresh       = errors.New("refresh token revoked")
 	ErrReusedRefresh        = errors.New("refresh token reuse detected")
+	ErrInvalidAccessToken   = errors.New("invalid access token")
+	ErrExpiredAccessToken   = errors.New("expired access token")
+	ErrUserNotFound         = errors.New("user not found")
 )
