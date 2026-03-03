@@ -1,0 +1,60 @@
+name: Refactor
+description: Code improvement without changing external behavior
+title: "[Refactor]: "
+labels: ["type:refactor"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Refactor Overview
+
+        Refactoring task focused on improving code structure,
+        readability, maintainability, or performance without changing functionality.
+
+  - type: textarea
+    id: current_problem
+    attributes:
+      label: Current Problem
+      description: What is wrong or suboptimal in the current implementation?
+      placeholder: |
+        - Code smell:
+        - Technical debt:
+        - Structural issue:
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Refactor
+      description: What changes should be made?
+      placeholder: |
+        - Extract module
+        - Simplify logic
+        - Improve naming
+        - Remove duplication
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What parts of the system are affected?
+      placeholder: |
+        - Frontend
+        - Shelf API
+        - Auth service
+        - Shared utilities
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification Checklist
+      options:
+        - label: No change in external behavior
+        - label: Existing functionality manually tested
+        - label: Build passes successfully
