@@ -1,0 +1,105 @@
+name: Epic
+description: Large architectural or cross-service initiative
+title: "[Epic]: "
+labels: ["type:epic"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Overview
+
+        High-level initiative describing a significant architectural or functional expansion.
+        Epics may span multiple repositories and milestones.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What limitation or architectural constraint does this epic address?
+      placeholder: |
+        - Current limitation:
+        - Why it matters:
+        - Who is affected:
+    validations:
+      required: true
+
+  - type: textarea
+    id: goals
+    attributes:
+      label: Goals
+      description: What should this epic accomplish?
+      placeholder: |
+        - Goal 1
+        - Goal 2
+        - Goal 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-Goals
+      description: What is explicitly out of scope?
+      placeholder: |
+        - Not included:
+        - Future consideration:
+    validations:
+      required: false
+
+  - type: textarea
+    id: architecture
+    attributes:
+      label: High-Level Architecture Impact
+      description: Which services/components are affected?
+      placeholder: |
+        - Auth Service:
+        - Shelf API:
+        - Frontend:
+        - Infrastructure:
+        - External services:
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_approach
+    attributes:
+      label: Technical Approach (Draft)
+      description: Outline the intended implementation strategy.
+      placeholder: |
+        - Proposed solution:
+        - Design approach:
+        - Integration strategy:
+    validations:
+      required: false
+
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks & Considerations
+      description: Identify possible technical or architectural risks.
+      placeholder: |
+        - Risk 1:
+        - Risk 2:
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Other issues, services, or infrastructure required.
+      placeholder: |
+        - Dependency 1
+        - Dependency 2
+    validations:
+      required: false
+
+  - type: input
+    id: milestone
+    attributes:
+      label: Target Milestone
+      description: Planned release version (e.g., v2.0.0)
+      placeholder: "vX.X.X"
+    validations:
+      required: true
