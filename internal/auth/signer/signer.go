@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -133,7 +132,7 @@ func (s *Signer) SignAccess(claims tokens.AccessClaims, ttl time.Duration) (stri
 	_ = t.Set(jwt.ExpirationKey, exp)
 
 	// subject = user id as string
-	_ = t.Set(jwt.SubjectKey, strconv.FormatInt(claims.UserID, 10))
+	_ = t.Set(jwt.SubjectKey, claims.UserID)
 
 	// custom claims
 	if claims.Email != "" {
@@ -150,6 +149,72 @@ func (s *Signer) SignAccess(claims tokens.AccessClaims, ttl time.Duration) (stri
 		return "", time.Time{}, err
 	}
 	return string(signed), exp, nil
+}
+
+func (s *Signer) VerifyAccess(tokenStr string) (*tokens.AccessClaims, error) {
+	msg, err := jws.Parse([]byte(tokenStr))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(msg.Signatures()) == 0 {
+		return nil, fmt.Errorf("no signatures")
+	}
+
+	hdr := msg.Signatures()[0].ProtectedHeaders()
+
+	kid, ok := hdr.Get(jws.KeyIDKey)
+	if !ok {
+		return nil, fmt.Errorf("missing kid")
+	}
+
+	kidStr, ok := kid.(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid kid type")
+	}
+
+	s.mu.RLock()
+	priv, ok := s.keys[kidStr]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, fmt.Errorf("unknown kid: %s", kidStr)
+	}
+
+	tok, err := jwt.Parse(
+		[]byte(tokenStr),
+		jwt.WithKey(jwa.RS256, &priv.PublicKey),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := jwt.Validate(
+		tok,
+		jwt.WithIssuer(s.issuer),
+		jwt.WithAudience(s.audience),
+		jwt.WithAcceptableSkew(5*time.Second),
+	); err != nil {
+		return nil, err
+	}
+
+	sub, ok := tok.Get(jwt.SubjectKey)
+	if !ok {
+		return nil, fmt.Errorf("missing sub")
+	}
+
+	userID, ok := sub.(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("invalid sub")
+	}
+
+	emailVal, _ := tok.Get("email")
+	email, _ := emailVal.(string)
+
+	return &tokens.AccessClaims{
+		UserID: userID,
+		Email:  email,
+	}, nil
 }
 
 func loadRSAPrivate(path string) (*rsa.PrivateKey, error) {
