@@ -96,7 +96,7 @@ func main() {
 	// Setup HTTP router with handlers, middlewares, and JWKS endpoint.
 	router := httpserver.NewRouter(
 		authSvc,
-		accessSigner,
+		sign, // middleware to verify access tokens on protected routes
 		j,
 		logger,
 		httpserver.Options{
