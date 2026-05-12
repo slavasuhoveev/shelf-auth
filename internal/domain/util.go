@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Now returns UTC time to enforce consistent timestamps in the domain layer.
 func Now() time.Time { return time.Now().UTC() }
@@ -9,4 +12,4 @@ func Now() time.Time { return time.Now().UTC() }
 func ptrTime(t time.Time) *time.Time { return &t }
 
 // nonEmpty validates a string is not empty after trimming.
-func nonEmpty(s string) bool { return len(s) > 0 }
+func nonEmpty(s string) bool { return strings.TrimSpace(s) != "" }

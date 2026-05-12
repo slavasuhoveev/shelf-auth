@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/slavasuhoveev/shelf-auth/internal/httpserver/handlers"
 	"github.com/slavasuhoveev/shelf-auth/internal/httpserver/middleware"
+	"github.com/slavasuhoveev/shelf-auth/internal/tokens"
 )
 
 // fake JWKS provider so router can be built
@@ -19,6 +20,12 @@ type fakeJWKS struct{}
 
 func (fakeJWKS) Current() ([]byte, string, time.Duration) {
 	return []byte(`{"keys":[]}`), `W/"t"`, 60 * time.Second
+}
+
+type fakeVerifier struct{}
+
+func (fakeVerifier) VerifyAccess(string) (*tokens.AccessClaims, error) {
+	return &tokens.AccessClaims{}, nil
 }
 
 // minimal logger
@@ -29,6 +36,7 @@ func testLogger() zerolog.Logger {
 func TestCORS_Preflight_AllowedOrigin(t *testing.T) {
 	r := NewRouter(
 		nil, // we don't hit auth handlers in these tests
+		fakeVerifier{},
 		fakeJWKS{},
 		testLogger(),
 		Options{
@@ -75,6 +83,7 @@ func TestCORS_Preflight_AllowedOrigin(t *testing.T) {
 func TestCORS_DisallowedOrigin_NoHeaders(t *testing.T) {
 	r := NewRouter(
 		nil,
+		fakeVerifier{},
 		fakeJWKS{},
 		testLogger(),
 		Options{

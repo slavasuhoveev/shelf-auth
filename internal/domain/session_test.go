@@ -4,14 +4,19 @@
 package domain
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
 
 func TestNewSession_Success(t *testing.T) {
-	s, err := NewSession(1, "device", "jti1", "hash", "127.0.0.1", "user_agent", time.Hour)
+	userID := NewID()
+	s, err := NewSession(userID, "device", "jti1", "hash", "127.0.0.1", "user_agent", time.Hour)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if s.UserID != userID {
+		t.Errorf("unexpected user ID: %s", s.UserID)
 	}
 	if !s.ExpiresAt.After(s.CreatedAt) {
 		t.Error("ExpiresAt must be after CreatedAt")
@@ -19,22 +24,24 @@ func TestNewSession_Success(t *testing.T) {
 }
 
 func TestNewSession_Invalid(t *testing.T) {
-	_, err := NewSession(0, "device", "jti", "hash", "", "", time.Hour)
+	userID := NewID()
+
+	_, err := NewSession(ID{}, "device", "jti", "hash", "", "", time.Hour)
 	if err == nil {
 		t.Error("expected error for invalid userID")
 	}
-	_, err = NewSession(1, "", "jti", "hash", "", "", time.Hour)
-	if err != ErrInvalidDeviceID {
+	_, err = NewSession(userID, "   ", "jti", "hash", "", "", time.Hour)
+	if !errors.Is(err, ErrInvalidDeviceID) {
 		t.Errorf("expected ErrInvalidDeviceID, got %v", err)
 	}
-	_, err = NewSession(1, "device", "", "hash", "", "", time.Hour)
-	if err != ErrInvalidJTI {
+	_, err = NewSession(userID, "device", "", "hash", "", "", time.Hour)
+	if !errors.Is(err, ErrInvalidJTI) {
 		t.Errorf("expected ErrInvalidJTI, got %v", err)
 	}
 }
 
 func TestSession_Lifecycle(t *testing.T) {
-	s, _ := NewSession(1, "device", "jti1", "hash", "", "", time.Millisecond*10)
+	s, _ := NewSession(NewID(), "device", "jti1", "hash", "", "", time.Millisecond*10)
 
 	// Not expired immediately
 	if s.IsExpired(time.Now()) {
@@ -55,8 +62,9 @@ func TestSession_Lifecycle(t *testing.T) {
 	}
 
 	// Rotation
-	s.MarkRotated(42)
-	if s.ReplacedBy == nil || *s.ReplacedBy != 42 {
+	replacementID := NewID()
+	s.MarkRotated(replacementID)
+	if s.ReplacedBy == nil || *s.ReplacedBy != replacementID {
 		t.Error("MarkRotated did not set ReplacedBy correctly")
 	}
 }

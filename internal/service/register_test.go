@@ -24,12 +24,12 @@ type fakeUsersRepo struct {
 
 func (f *fakeUsersRepo) Insert(_ context.Context, u *domain.User) (domain.ID, error) {
 	if f.forceErr != nil {
-		return 0, f.forceErr
+		return domain.ID{}, f.forceErr
 	}
 	c := *u
 	f.inserted = &c
-	if f.nextID == 0 {
-		f.nextID = 1
+	if f.nextID.IsZero() {
+		f.nextID = domain.NewID()
 	}
 	if f.byEmail == nil {
 		f.byEmail = make(map[string]*domain.User)
@@ -47,6 +47,17 @@ func (f *fakeUsersRepo) FindByEmail(_ context.Context, email domain.Email) (*dom
 		}
 	}
 	return nil, errors.New("not found")
+}
+
+func (f *fakeUsersRepo) FindByID(_ context.Context, id domain.ID) (*domain.User, error) {
+	if f.byEmail != nil {
+		for _, u := range f.byEmail {
+			if u.ID == id {
+				return u, nil
+			}
+		}
+	}
+	return nil, domain.ErrUserNotFound
 }
 
 func newTestService(t *testing.T, ur *fakeUsersRepo) *AuthService {
@@ -67,14 +78,15 @@ func newTestService(t *testing.T, ur *fakeUsersRepo) *AuthService {
 // ---- tests ----
 
 func TestRegister_Success(t *testing.T) {
-	frepo := &fakeUsersRepo{nextID: 42}
+	nextID := domain.NewID()
+	frepo := &fakeUsersRepo{nextID: nextID}
 	svc := newTestService(t, frepo)
 
 	res, err := svc.Register(context.Background(), "new.user@example.com", "abc12345", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if res == nil || res.ID != 42 || res.Email != "new.user@example.com" {
+	if res == nil || res.ID != nextID || res.Email != "new.user@example.com" {
 		t.Fatalf("unexpected result: %+v", res)
 	}
 	if frepo.inserted == nil {

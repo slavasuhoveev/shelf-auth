@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
@@ -26,7 +27,7 @@ func (fakeSigner) SignAccess(_ tokens.AccessClaims, ttl time.Duration) (string, 
 type memSessions struct {
 	byHash  map[string]*domain.Session
 	revoked map[string]bool // key: "<userID>|<deviceID>"
-	nextID  domain.ID
+	nextID  int
 }
 
 func newMemSessions() *memSessions {
@@ -37,7 +38,7 @@ func newMemSessions() *memSessions {
 	}
 }
 
-func key(u domain.ID, d string) string { return fmt.Sprintf("%d|%s", u, d) }
+func key(u domain.ID, d string) string { return fmt.Sprintf("%s|%s", u, d) }
 
 func (m *memSessions) FindByHash(_ context.Context, h string) (*domain.Session, error) {
 	if s, ok := m.byHash[h]; ok {
@@ -47,7 +48,7 @@ func (m *memSessions) FindByHash(_ context.Context, h string) (*domain.Session, 
 }
 
 func (m *memSessions) Create(_ context.Context, s *domain.Session) error {
-	s.ID = m.nextID
+	s.ID = domain.NewID()
 	m.nextID++
 	m.byHash[s.RefreshHash] = s
 	return nil
@@ -55,7 +56,7 @@ func (m *memSessions) Create(_ context.Context, s *domain.Session) error {
 
 func (m *memSessions) Rotate(_ context.Context, oldJTI string, ns *domain.Session) error {
 	// give new session an ID
-	ns.ID = m.nextID
+	ns.ID = domain.NewID()
 	m.nextID++
 
 	// mark old session as replaced_by = new ID
@@ -108,7 +109,7 @@ func seedSession(t *testing.T, svc *AuthService, raw string, userID domain.ID, d
 		JTI:         uuid.NewString(),
 		RefreshHash: h,
 		DeviceID:    deviceID,
-		IP:          "1.2.3.4",
+		IP:          domain.NewIPFromNet(net.ParseIP("1.2.3.4")),
 		CreatedAt:   now,
 		ExpiresAt:   now.Add(30 * 24 * time.Hour),
 	}
@@ -123,7 +124,7 @@ func seedSession(t *testing.T, svc *AuthService, raw string, userID domain.ID, d
 func TestRefresh_Success_Rotation(t *testing.T) {
 	svc := newSvc(t)
 	raw := "R1-token"
-	s := seedSession(t, svc, raw, 5, "dev-1")
+	s := seedSession(t, svc, raw, domain.NewID(), "dev-1")
 
 	res, err := svc.Refresh(context.Background(), raw, "dev-1", "1.1.1.1", "UA")
 	if err != nil {
@@ -141,12 +142,12 @@ func TestRefresh_Success_Rotation(t *testing.T) {
 func TestRefresh_Reuse_Detected_RevokesDevice(t *testing.T) {
 	svc := newSvc(t)
 	raw := "R1"
-	user := domain.ID(7)
+	user := domain.NewID()
 	dev := "dev-7"
 	seed := seedSession(t, svc, raw, user, dev)
 
 	// first refresh ok → rotation
-	if _, err := svc.Refresh(context.Background(), raw, dev, "ip", "UA"); err != nil {
+	if _, err := svc.Refresh(context.Background(), raw, dev, "1.1.1.1", "UA"); err != nil {
 		t.Fatalf("first refresh err: %v", err)
 	}
 	if seed.ReplacedBy == nil {
@@ -154,7 +155,7 @@ func TestRefresh_Reuse_Detected_RevokesDevice(t *testing.T) {
 	}
 
 	// reuse old R1 → should revoke device sessions and return ErrReusedRefresh
-	_, err := svc.Refresh(context.Background(), raw, dev, "ip", "UA")
+	_, err := svc.Refresh(context.Background(), raw, dev, "1.1.1.1", "UA")
 	if !errors.Is(err, domain.ErrReusedRefresh) {
 		t.Fatalf("expected ErrReusedRefresh, got %v", err)
 	}
@@ -166,11 +167,11 @@ func TestRefresh_Expired(t *testing.T) {
 	h := security.HashSHA256Hex(raw)
 	now := time.Now().UTC().Add(-time.Hour)
 	s := &domain.Session{
-		UserID:      1,
+		UserID:      domain.NewID(),
 		JTI:         uuid.NewString(),
 		RefreshHash: h,
 		DeviceID:    "dev",
-		IP:          "ip",
+		IP:          domain.NewIPFromNet(net.ParseIP("127.0.0.1")),
 		CreatedAt:   now.Add(-30 * 24 * time.Hour),
 		ExpiresAt:   now, // already expired
 	}
