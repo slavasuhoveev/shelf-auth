@@ -6,12 +6,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -50,7 +47,7 @@ func TestSigner_SignAccess_BasicClaims(t *testing.T) {
 	s := New(tmp, kid, "RS256", ttl, iss, aud)
 
 	cl := tokens.AccessClaims{
-		UserID: 42,
+		UserID: "42",
 		Email:  "user@example.com",
 	}
 
@@ -78,7 +75,7 @@ func TestSigner_SignAccess_BasicClaims(t *testing.T) {
 	if got, _ := parsed.Get(jwt.AudienceKey); gotStr(got) != aud {
 		t.Fatalf("aud mismatch: %v", got)
 	}
-	if got, _ := parsed.Get(jwt.SubjectKey); got != strconv.FormatInt(cl.UserID, 10) {
+	if got, _ := parsed.Get(jwt.SubjectKey); got != cl.UserID {
 		t.Fatalf("sub mismatch: %v", got)
 	}
 
@@ -86,7 +83,7 @@ func TestSigner_SignAccess_BasicClaims(t *testing.T) {
 	if got, _ := parsed.Get("email"); got != cl.Email {
 		t.Fatalf("email mismatch: %v", got)
 	}
-	if got, _ := parsed.Get("uid"); toInt64(got) != cl.UserID {
+	if got, _ := parsed.Get("uid"); got != cl.UserID {
 		t.Fatalf("uid mismatch: %v", got)
 	}
 }
@@ -96,7 +93,7 @@ func TestSigner_SignAccess_UnknownKID(t *testing.T) {
 	// intentionally do NOT write a key for kid
 	s := New(tmp, "missing-kid", "RS256", 15*time.Minute, "iss", "aud")
 
-	_, _, err := s.SignAccess(tokens.AccessClaims{UserID: 1, Email: "e@x"}, 15*time.Minute)
+	_, _, err := s.SignAccess(tokens.AccessClaims{UserID: "1", Email: "e@x"}, 15*time.Minute)
 	if err == nil || !strings.Contains(err.Error(), "signing key not found") {
 		t.Fatalf("expected signing key not found error, got: %v", err)
 	}
@@ -111,27 +108,4 @@ func gotStr(audAny any) string {
 		return sl[0]
 	}
 	return ""
-}
-
-func toInt64(v any) int64 {
-	switch x := v.(type) {
-	case int64:
-		return x
-	case int:
-		return int64(x)
-	case float64:
-		return int64(x)
-	case json.Number:
-		if n, err := x.Int64(); err == nil {
-			return n
-		}
-	}
-	// last resort: string parse
-	if s, ok := v.(string); ok {
-		if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-			return n
-		}
-	}
-	_ = fmt.Sprintf("") // keep fmt imported if needed
-	return 0
 }

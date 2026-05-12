@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -50,10 +51,10 @@ func Load() (Config, error) {
 	if c.JWTAlg != "RS256" {
 		return c, errors.New("JWT_ALG must be RS256 for now")
 	}
-	if c.KeysDir == "" {
+	if strings.TrimSpace(c.KeysDir) == "" {
 		return c, errors.New("KEYS_DIR is required")
 	}
-	if c.SigningKeyKID == "" {
+	if strings.TrimSpace(c.SigningKeyKID) == "" {
 		return c, errors.New("SIGNING_KEY_KID is required (e.g. k1-2025-08-25)")
 	}
 	return c, nil

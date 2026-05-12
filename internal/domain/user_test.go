@@ -14,8 +14,8 @@ func TestNewUser_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if u.ID != 0 {
-		t.Errorf("new user should not have ID yet, got %d", u.ID)
+	if !u.ID.IsZero() {
+		t.Errorf("new user should not have ID yet, got %s", u.ID)
 	}
 	if u.Email.String() != "a@b.com" {
 		t.Errorf("unexpected email: %s", u.Email.String())
