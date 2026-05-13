@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/slavasuhoveev/shelf-auth/internal/tokens"
@@ -47,7 +48,7 @@ func TestSigner_SignAccess_BasicClaims(t *testing.T) {
 	s := New(tmp, kid, "RS256", ttl, iss, aud)
 
 	cl := tokens.AccessClaims{
-		UserID: "42",
+		UserID: uuid.NewString(),
 		Email:  "user@example.com",
 	}
 
@@ -93,7 +94,7 @@ func TestSigner_SignAccess_UnknownKID(t *testing.T) {
 	// intentionally do NOT write a key for kid
 	s := New(tmp, "missing-kid", "RS256", 15*time.Minute, "iss", "aud")
 
-	_, _, err := s.SignAccess(tokens.AccessClaims{UserID: "1", Email: "e@x"}, 15*time.Minute)
+	_, _, err := s.SignAccess(tokens.AccessClaims{UserID: uuid.NewString(), Email: "e@x"}, 15*time.Minute)
 	if err == nil || !strings.Contains(err.Error(), "signing key not found") {
 		t.Fatalf("expected signing key not found error, got: %v", err)
 	}

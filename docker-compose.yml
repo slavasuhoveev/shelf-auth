@@ -50,7 +50,9 @@ services:
   auth:
     image: "${IMAGE}"
     container_name: "${PROJECT_NAME}"
-    build: .
+    build:
+      context: .
+      target: production
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,6 +63,14 @@ services:
     volumes:
       # mount dev keys into container path from KEYS_DIR
       - ./devkeys:/run/secrets/keys:ro
+
+  test:
+    build:
+      context: .
+      target: test
+    working_dir: /app
+    volumes:
+      - .:/app
 
 volumes:
   pgdata:

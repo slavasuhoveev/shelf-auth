@@ -7,11 +7,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"encoding/pem"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -49,7 +47,7 @@ func TestEndToEnd_SignAndVerifyViaJWKS(t *testing.T) {
 	p := jwks.NewProvider(tmp, "RS256", 60*time.Second)
 
 	// sign
-	cl := tokens.AccessClaims{UserID: 7, Email: "u7@example.com"}
+	cl := tokens.AccessClaims{UserID: "7", Email: "u7@example.com"}
 	token, _, err := s.SignAccess(cl, ttl)
 	if err != nil {
 		t.Fatalf("SignAccess: %v", err)
@@ -67,7 +65,7 @@ func TestEndToEnd_SignAndVerifyViaJWKS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify jwt with jwks: %v", err)
 	}
-	if got, _ := parsed.Get("uid"); toInt64(got) != int64(7) {
+	if got, _ := parsed.Get("uid"); got != cl.UserID {
 		t.Fatalf("uid claim mismatch: %v", got)
 	}
 	if got, _ := parsed.Get("email"); got != "u7@example.com" {
@@ -84,25 +82,4 @@ func TestEndToEnd_SignAndVerifyViaJWKS(t *testing.T) {
 	defer cancel()
 	go p.StartAutoRefresh(ctx, 50*time.Millisecond)
 	time.Sleep(120 * time.Millisecond) // let it tick at least once
-}
-
-func toInt64(v any) int64 {
-	switch x := v.(type) {
-	case int64:
-		return x
-	case int:
-		return int64(x)
-	case float64:
-		return int64(x)
-	case json.Number:
-		if n, err := x.Int64(); err == nil {
-			return n
-		}
-	}
-	if s, ok := v.(string); ok {
-		if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-			return n
-		}
-	}
-	return 0
 }
