@@ -8,8 +8,17 @@
 # -----------------------------
 PROJECT_NAME         = shelf-auth
 
-TAG                 ?= develop
-IMAGE               ?= ghcr.io/slavasuhoveev/$(PROJECT_NAME):$(TAG)
+REGISTRY ?= ghcr.io
+IMAGE_NAME ?= $(REGISTRY)/slavasuhoveev/$(PROJECT_NAME)
+
+# Default local tag
+TAG ?= develop
+
+ifdef CI
+TAG = latest
+endif
+
+IMAGE = $(IMAGE_NAME):$(TAG)
 
 SVC                 ?= cmd/$(PROJECT_NAME)
 BIN                 ?= bin/$(PROJECT_NAME)
@@ -103,31 +112,31 @@ check:
 test: test-unit-v test-int-v
 
 test-build:
-	docker compose build test
+	@docker compose build test
 
 # -----------------------------
 # Unit tests
 # -----------------------------
 
 test-unit: test-build
-	docker compose run --rm test \
+	@docker compose run --rm test \
 		go test -tags=unit $(TEST_FLAGS) \
 		$(if $(RUN),-run $(RUN),) \
 		$(PKG)
 
 test-unit-v: test-build
-	docker compose run --rm test \
+	@docker compose run --rm test \
 		gotestsum --format standard-verbose -- \
 		-tags=unit $(TEST_FLAGS) \
 		$(if $(RUN),-run $(RUN),) \
 		$(PKG)
 
 test-unit-race: test-build
-	docker compose run --rm test \
+	@docker compose run --rm test \
 		go test -tags=unit -race $(TEST_FLAGS) $(PKG)
 
 test-unit-cover: test-build
-	docker compose run --rm test \
+	@docker compose run --rm test \
 		sh -c 'go test -tags=unit -cover -coverprofile=$(COVERPROFILE) $(TEST_FLAGS) $(PKG) && go tool cover -func=$(COVERPROFILE)'
 
 # -----------------------------
@@ -135,13 +144,13 @@ test-unit-cover: test-build
 # -----------------------------
 
 test-int: test-build
-	docker compose run --rm test \
+	@docker compose run --rm test \
 		go test -tags=integration $(TEST_FLAGS) \
 		$(if $(RUN),-run $(RUN),) \
 		$(PKG)
 
 test-int-v: test-build
-	docker compose run --rm test \
+	@docker compose run --rm test \
 		gotestsum --format standard-verbose -- \
 		-tags=integration $(TEST_FLAGS) \
 		$(if $(RUN),-run $(RUN),) \
@@ -152,15 +161,15 @@ test-int-v: test-build
 
 # Build docker images
 build:
-	docker compose build --no-cache
+	@docker compose build --no-cache
 
 # Start services
 up: build
-	docker compose up -d
+	@docker compose up -d
 
 # Stop services
 down:
-	docker compose down -v
+	@docker compose down -v
 
 # Follow logs
 logs:
@@ -168,25 +177,25 @@ logs:
 
 # Push docker image
 push:
-	docker push $(IMAGE)
+	@docker push $(IMAGE)
 
 # =========================================================
 # Database migrations
 # =========================================================
 
 migrate-up:
-	docker compose run --rm migrate \
+	@docker compose run --rm migrate \
 		-path=/migrations \
 		-database "$(DOCKER_DATABASE_URL)" up
 
 migrate-down:
-	docker compose run --rm migrate \
+	@docker compose run --rm migrate \
 		-path=/migrations \
 		-database "$(DOCKER_DATABASE_URL)" down 1
 
 migrate-force:
 	@read -p "Enter version to force: " v; \
-	docker compose run --rm migrate \
+	@docker compose run --rm migrate \
 		-path=/migrations \
 		-database "$(DOCKER_DATABASE_URL)" \
 		force $$v
@@ -197,7 +206,7 @@ migrate-force:
 
 seed-user:
 	@hash=$$(go run ./tools/hashpw -password "$(SEED_PASSWORD)"); \
-	docker exec $(PROJECT_NAME)-postgres psql -U shelf -d shelf_auth -c "\
+	@docker exec $(PROJECT_NAME)-postgres psql -U shelf -d shelf_auth -c "\
 		INSERT INTO users (email, password_hash, email_verified) \
 		VALUES ('$(SEED_EMAIL)', '$$hash', true) \
 		ON CONFLICT (email) DO UPDATE SET \
