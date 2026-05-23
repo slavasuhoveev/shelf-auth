@@ -56,9 +56,6 @@ jobs:
       contents: read
       packages: write
 
-    env:
-      TAG: ${{ github.sha }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
