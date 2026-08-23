@@ -60,6 +60,8 @@ func NewRouter(
 	// Health
 	r.Get("/healthz", handlers.HealthHandler())
 	r.Head("/healthz", handlers.HealthHandler())
+	r.Get("/readyz", handlers.ReadyHandler())
+	r.Head("/readyz", handlers.ReadyHandler())
 
 	// JWKS
 	r.Get("/.well-known/jwks.json", handlers.JWKSHandler(jwks))

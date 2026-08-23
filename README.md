@@ -13,7 +13,7 @@ Provides JWT (RS256) access tokens, opaque refresh tokens with rotation & reuse 
 - **Refresh tokens**: opaque, HttpOnly cookie, rotation + reuse detection, device & IP/UA tracking
 - **JWKS endpoint** (`/.well-known/jwks.json`) publishing all public keys (multi-key, rotation-friendly) with **ETag** and **Cache-Control**
 - **CORS** (configurable origins) and **security headers**
-- **Health** endpoint (`/healthz`)
+- **Health** and **readiness** endpoints (`/healthz`, `/readyz`)
 - **Migrations** and **seed user** helper
 - **Unit & Integration tests** (with build tags)
 
@@ -22,6 +22,7 @@ Provides JWT (RS256) access tokens, opaque refresh tokens with rotation & reuse 
 ## Endpoints
 
 - `GET /healthz` — liveness status
+- `GET /readyz` — readiness status
 - `GET /.well-known/jwks.json` — JWKS (public keys for signature verification)
 - `POST /register` — register user (email + password)
 - `POST /login` — issue access token & set refresh cookie
@@ -35,6 +36,13 @@ Health:
 curl -i http://localhost:8081/healthz
 # HTTP/1.1 200 OK
 # {"status":"ok","service":"shelf-auth"}
+```
+
+Readiness:
+```bash
+curl -i http://localhost:8081/readyz
+# HTTP/1.1 200 OK
+# {"status":"ready","service":"shelf-auth"}
 ```
 
 JWKS (includes multiple keys during rotation):
@@ -168,7 +176,7 @@ shelf-auth/
 │  ├─ config/                     # Env config loader
 │  ├─ domain/                     # Core domain types
 │  ├─ httpserver/
-│  │  ├─ handlers/                # Handlers: healthz, jwks, login, refresh, logout
+│  │  ├─ handlers/                # Handlers: healthz, readyz, jwks, login, refresh, logout
 │  │  ├─ middleware/              # Security headers
 │  │  └─ (router, samesite)       # Router wiring, SameSite parsing
 │  ├─ logging/                    # Zerolog setup
@@ -304,7 +312,6 @@ HTTP codes:
 ## Roadmap
 
 - OpenAPI spec for endpoints
-- `/readyz` readiness probe
 - Rate limiting, bruteforce protection
 - Email verification & password reset
 - Helm charts, CI (lint/test/build/push), K8s manifests
