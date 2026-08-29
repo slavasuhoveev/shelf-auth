@@ -14,10 +14,6 @@ IMAGE_NAME ?= $(REGISTRY)/slavasuhoveev/$(PROJECT_NAME)
 # Default local tag
 TAG ?= develop
 
-ifdef CI
-TAG = latest
-endif
-
 IMAGE = $(IMAGE_NAME):$(TAG)
 
 SVC                 ?= cmd/$(PROJECT_NAME)
